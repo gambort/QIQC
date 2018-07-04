@@ -2,9 +2,10 @@ import numpy as np
 
 # Order
 # Plus
-# S,X,Y,Z,XX,YY,ZZ,XY,XZ,YZ,XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
+# S,    X,Y,Z,    XX,YY,ZZ,XY,XZ,YZ,
+# XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
 # Minus
-# S,X,Y,Z,3ZZ-RR,XZ,YZ,XX-YY,XY,
+# S,    X,Y,Z,    3ZZ-RR,XZ,YZ,XX-YY,XY,
 # ZZZ-ZRR,XZZ-XRR,YZZ-YRR,XXZ-YYZ,XYZ,XXX-XYY,XXY-YYY,
 # XY(XX-YY)
 
@@ -27,7 +28,7 @@ def GetNormPoly(L,m=0,xyz=None):
 # Get the polynomial term
 def GetPoly(L,m=0,xyz=None):
     if L==0:
-        return 1
+        return 1.
     if L==1:
         return xyz[:,m]
     if L==2:
@@ -44,6 +45,13 @@ def GetPoly(L,m=0,xyz=None):
             return xyz[:,0]**2-xyz[:,1]**2
         elif m==4:
             return xyz[:,0]*xyz[:,1]
+    if L==3:
+# XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ
+        T=[(3,0,0),(0,3,0),(0,0,3),
+           (1,2,0),(2,1,0),(2,0,1),
+           (1,0,2),(0,1,2),(0,2,1),
+           (1,1,1)][m]
+        return xyz[:,0]**T[0]*xyz[:,1]**T[1]*xyz[:,2]**T[2]
     if L==-3:
         if m==0:
             return -xyz[:,2]*(xyz[:,0]**2+xyz[:,1]**2)
@@ -59,13 +67,8 @@ def GetPoly(L,m=0,xyz=None):
             return xyz[:,0]*(xyz[:,0]**2-xyz[:,1]**2)
         if m==6:
             return xyz[:,1]*(xyz[:,0]**2-xyz[:,1]**2)
-    if L==3:
-        T=[(3,0,0),(0,3,0),(0,0,3),
-           (1,2,0),(2,1,0),(2,0,1),
-           (1,0,2),(0,1,2),(0,2,1),
-           (1,1,1)][m]
-        return xyz[:,0]**T[0]*xyz[:,1]**T[1]*xyz[:,2]**T[2]
     if L==-4:
+        print("L=-4 Not implemented")
         return 0.
 
     return None
@@ -144,6 +147,9 @@ class GTOGaussian:
 
     def GetOrbGrid(self, Orb, xyz, RPrune=6.0, cPrune=1e-5):
         GG=0.
+        if len(xyz.shape)==1:
+            xyz=xyz.reshape((1,3))
+
         for b in range(self.NBasis):
             cc=Orb[b]
             if np.abs(cc)<=cPrune:
@@ -151,8 +157,8 @@ class GTOGaussian:
             gb,l,m=self.GetGaussianProps(b)
             if (np.abs(l)>=4):
                 if np.abs(cc)>1e-2:
-                    print "Warning: >g orbitals not implemented: "\
-                        +"missing weight is %.3f"%(cc)
+                    print("Warning: >g orbitals not implemented: "\
+                              +"missing weight is %.3f"%(cc))
             else:
                 BB=self.GetGaussian(b, xyz, RPrune=RPrune)
                 GG+=cc*BB

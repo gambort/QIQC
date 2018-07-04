@@ -50,3 +50,28 @@ def NiceColour(k=0, ID=None):
     else:
         return NiceColourTable[ID]
 
+
+from matplotlib.colors import LinearSegmentedColormap
+
+def NiceCMap(ID="inferno"):
+    if ID=="inferno":
+        return LinearSegmentedColormap.from_list( \
+            "inferno", [NiceColour(ID="Navy"),
+                        #(0.92,0.66,0.33),
+                        NiceColour(ID="Orange"),
+                        NiceColour(ID="Beige")], N=100)
+    elif ID=="gn_inferno":
+        return LinearSegmentedColormap.from_list( \
+            "inferno", [NiceColour(ID="Green"),
+                        NiceColour(ID="Teal"),
+                        NiceColour(ID="Navy"),
+                        #(0.92,0.66,0.33),
+                        NiceColour(ID="Orange"),
+                        NiceColour(ID="Beige")], N=100)
+
+    else:
+        return LinearSegmentedColormap.from_list( \
+            "inferno", [NiceColour(ID="Navy"),
+                        #(0.92,0.66,0.33),
+                        NiceColour(ID="Orange"),
+                        NiceColour(ID="Beige")], N=100)

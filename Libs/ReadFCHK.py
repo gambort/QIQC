@@ -15,7 +15,7 @@ def GetNextEntry(F):
         return "EOF"
 
     if L[0]==" ":
-        print "# Warning - seems to be a data line"
+        print("# Warning - seems to be a data line")
         return None,L
 
     Title=L[:40].rstrip()
@@ -59,7 +59,7 @@ class FCHKFile(dict):
                 break
 
             if E[0] is None:
-                print E[1]
+                print(E[1])
             self.AllData[E[0]]=E[1]
         F.close()
 

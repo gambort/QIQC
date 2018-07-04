@@ -3,16 +3,17 @@ import matplotlib.pyplot as plt
 from scipy.linalg import eigh
 
 
-from ReadFCHK import *
-from GTOGaussian import *
-from ConcurrenceLib import *
-from ConcurrenceMisc import *
+from Libs.ReadFCHK import *
+from Libs.GTOGaussian import *
 
-from QuickElements import *
-from NiceColours import *
+from Libs.QuickElements import *
+from Libs.NiceColours import *
 
-from SphGrid import *
-from GetBonds import *
+from Libs.SphGrid import *
+from Libs.GetBonds import *
+
+from Libs.ConcurrenceLib import *
+from Libs.ConcurrenceMisc import *
 
 from  optparse import OptionParser
 
@@ -384,7 +385,7 @@ if Opts.Show:
 
     plt.clf()
 
-    from RenderMol import *
+    from Libs.RenderMol import *
     
     ax=plt.gca()
     

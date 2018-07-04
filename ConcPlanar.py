@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-from ReadFCHK import *
-from GTOGaussian import *
-from ConcurrenceLib import *
-from ConcurrenceMisc import *
+from Libs.ReadFCHK import *
+from Libs.GTOGaussian import *
+from Libs.QuickElements import *
+from Libs.NiceColours import *
 
-from QuickElements import *
-from NiceColours import *
+from Libs.ConcurrenceLib import *
+from Libs.ConcurrenceMisc import *
 
 import sys
 from  optparse import OptionParser
