@@ -1,30 +1,58 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.linalg import eigh
+
 
 from ReadFCHK import *
 from GTOGaussian import *
 from ConcurrenceLib import *
+from ConcurrenceMisc import *
 
 from QuickElements import *
 from NiceColours import *
 
 from SphGrid import *
+from GetBonds import *
 
 from  optparse import OptionParser
 
 parser = OptionParser()
-parser.add_option('--ID', type="string", default="HCl-127")
+parser.add_option('--ID', type="string", default="HCl-127",
+                  help="Name of the fchk file")
+
+
+parser.add_option('--Pairs', type="string", default=None,
+                  help="K0-K1,N01:K1-K2,N12 - List of atom pairs and number of steps between them, separated by : e.g. 1-0:4,0:12,4 steps between atoms 1 and 0 and 0 and 12 divided into quarters")
+parser.add_option('--Ghost', type="string", default=None,
+                  help="GHOST=X,Y,Z - Introduce a ghost atom at point X,Y,Z to use as an additional reference e.g. --Ghost 0.,0.,0. puts a ghost at the origin")
+
+parser.add_option('-W', type=float, default=0.0,
+                  help="Amount of excited state - not recommended")
+
+parser.add_option('--NGrid', type=int, default=11,
+                  help="Size of each dimension of the Gaussian grid")
+parser.add_option('--Radius', type=float, default=-1.,
+                  help="Radius of Gaussian envelope")
+
+parser.add_option('--Mode', type="string", default="Cs",
+                  help="Type of metric")
+
+parser.add_option('--Tensor', default=False, action="store_true",
+                  help="Show tensor metric as well")
+
+parser.add_option('--Surface', default=True, action="store_true",
+                  help="Surface of a sphere")
+
+parser.add_option('--Show', default=False, action="store_true",
+                  help="Show the concurrence in a plot")
+
+parser.add_option('--Proj', type="string", default=None)
+parser.add_option('--PHeight', type="float", default=None)
+
+parser.add_option('--Step', type=float, default=0.25)
 parser.add_option('--Shiftx', type=float, default=0.)
 parser.add_option('--Shifty', type=float, default=0.)
 parser.add_option('--Shiftz', type=float, default=0.)
-parser.add_option('-W', type=float, default=0.3)
-
-parser.add_option('--NGrid', type=int, default=6)
-parser.add_option('--Radius', type=float, default=0.6)
-
-parser.add_option('--Mode', type="string", default="Cs")
-
-parser.add_option('--Grid', type="string", default="PGaussian")
 
 (Opts, args) = parser.parse_args()
 
@@ -44,83 +72,114 @@ class Logger:
     def Close(self):
         if not(self.F is None): self.F.close()
 
+Dirs = ConcFileDirs() # Initialise the various directories
 
-L=Logger("Data/Pairs-%s-%.1f.log"%(Opts.ID, Opts.Radius))
+L=Logger("%s/Pairs-%s-%.1f.log"%(Dirs.Data, Opts.ID, Opts.Radius))
 
 RayShift=np.array([Opts.Shiftx,Opts.Shifty,Opts.Shiftz])*AngToHa
 
-AtomPairs=[(0,0),(0,1),(1,1)]
-if Opts.ID in ("Benzene","Benzene-CAM","Benzene-M06L"):
-    ID="Benzene"
-    AtomPairs=[(0,0),(0,1),(0,2),(0,3),(0,6),(0,7),(6,6),(6,7)]
-elif Opts.ID in ("Fe","Fe-CAM","Fe-M06L","Fe-Aug"):
-    ID="Fe-Compound"+Opts.ID[2:]
-    AtomPairs=[(0,0),(0,6),(6,6),(6,12),(12,12),(12,9),(9,9),(9,15),(15,15)]
-elif Opts.ID in ("Fe2p","Fe2p-CAM","Fe2p-M06L"):
-    ID="Fe2p-Compound"+Opts.ID[4:]
-    AtomPairs=[(0,0),(0,6),(6,6),(6,12),(12,12),(12,9),(9,9),(9,15),(15,15)]
-elif Opts.ID in ("Fe2pCO6","Fe2pCO6-CAM","Fe2pCO6-M06L"):
-    ID="Fe2p-CO6"+Opts.ID[7:]
-    AtomPairs=[(0,0),(0,1),(1,1),(1,2),(2,2)]
-elif Opts.ID[:4]=="C2H4":
-    ID=Opts.ID
-    AtomPairs=[(0,0),(0,1),(1,1),(1,4),(4,4)]
-elif Opts.ID in ("CO2","CO2x2"):
-    ID=Opts.ID
-    AtomPairs=[(0,0),(0,1),(1,1),(0,2)]
-else:
-    ID=Opts.ID
-
-D=FCHKFile("Data/%s.fchk"%(ID))
+#######################################################
+D=FCHKFile("%s/%s.fchk"%(Dirs.Data, Opts.ID))
 ZAtom=D['Nuclear charges']
 IDAtom=[QE.GetID(Z) for Z in ZAtom]
 
 NAtom=len(ZAtom)
 RAtom=D['Current cartesian coordinates'].reshape(NAtom,3)
 
+Bonds,BondList=GetBonds(RAtom, IDAtom, Units="Ha")
+
+if not(Opts.Ghost is None):
+    X=[float(X)*AngToHa for X in Opts.Ghost.split(",")]
+    RAtom=np.vstack((RAtom,X))
+    NAtom+=1
+    ZAtom=np.hstack((ZAtom,[0]))
+    IDAtom+=["Gh",]
+    BB=np.zeros((NAtom,NAtom))
+    BB[:(NAtom-1),:(NAtom-1)]=Bonds
+    Bonds=BB
+
+#######################################################
 RMin2=1e10;
 for A in range(NAtom):
     for Ap in range(A+1,NAtom):
         R2=((RAtom[A,:]-RAtom[Ap,:])**2).sum()
         RMin2=min(R2,RMin2)
-           
 
+L.Log("Atoms:")
 for A in range(NAtom):
-    L.Log("%-3s %3d %s [Ang]"%(IDAtom[A], ZAtom[A],
-                         NiceTriplet(RAtom[A,:]*HaToAng)))
+    #L.Log("# %-3s %3d %s [Ang]"%(IDAtom[A], ZAtom[A],
+    #                             NiceTriplet(RAtom[A,:]*HaToAng)))
+    AtID=IDAtom[A]+"%d"%(A)
+    L.Log("  %-6s: { ID : %2s, Z: %3d, R: %s, Units: Ang }"\
+              %(AtID, IDAtom[A], ZAtom[A], NiceTriplet(RAtom[A,:]*HaToAng)))
+
+BStr=",".join( "[ %d, %d ]"%(B[0],B[1]) for B in BondList )
+L.Log("Bonds: [ "+ BStr + " ]")
+
+#######################################################
+# Some default pairs
+AtomPairs=[(0,1),]
+#######################################################
+# Process the bond positions into pairs
+if not(Opts.Pairs is None):
+    AtomPairs=ConcSplitOption(Opts.Pairs, Rtype="int")
+elif len(BondList)>1:
+    def GoTo(BondList, Curr, Visited):
+        N=-1
+        for B in BondList:
+            if Curr==B[0]: N=B[1]
+            if Curr==B[1]: N=B[0]
+            if (N>=0) and not(N in Visited):
+                return N
+        return None
+    Curr=0
+    Visited=[Curr,]
+    N=GoTo(BondList, Curr, Visited)
+    if not(N is None):
+        AtomPairs=[(Curr,N)]
+    while not(N is None):
+        Visited+=[N,]
+        Curr=N
+        N=GoTo(BondList, Curr, Visited)
+        if not(N is None):
+            AtomPairs+=[(Curr,N)]
 
 
+
+
+#######################################################
 # Setup basis and orbitals
 Basis=GTOGaussian(D)
 Orbs=Orbitals(D)
 
 
-NGrid=Opts.NGrid
-NGrid3=NGrid**3
+#######################################################
+# Use shortest bond to specify radius if set negative
 if Opts.Radius>0.:
     Radius=Opts.Radius*AngToHa
 else:
-    Radius=-Opts.Radius*np.sqrt(RMin2)/2.
+    Radius=1.
 
-L.Log("Shortest bond:  %.4f [Ang]"%(np.sqrt(RMin2)*HaToAng))
-L.Log("Gausssian rad.: %.4f [Ang]"%(Radius*HaToAng))
+L.Log("# Shortest bond:  %.4f [Ang]"%(np.sqrt(RMin2)*HaToAng))
+L.Log("# Gausssian rad.: %.4f [Ang]"%(Radius*HaToAng))
 
-GridID=Opts.Grid[0:3].upper()
-if GridID=="SPH":
-    L.Log("Using spherical grid")
-    Cube,W=GetSphGrid(R=Radius)
-elif GridID=="RAN":
-    from numpy.random import normal
-    Cube=normal(scale=Radius,size=(NGrid,3))
-    R2=Cube[:,0]**2+Cube[:,1]**2+Cube[:,2]**2
-    W=np.exp(-R2/Radius**2)
-    W/=np.sum(W)
+#######################################################
+NGrid=Opts.NGrid
+NGrid3=NGrid**3
+
+L.Log("Grid info: >")
+if Opts.Surface:
+    Cube, W = GetSphGrid(Radius)
+    if Opts.Radius>0.:
+        L.Log("  Using surface grid at Radius = %.3f"%(Radius))
+    else:
+        L.Log("  Using surface grid at Radius = rs")
 else:
     x,wx,lwx=GaussHermiteWeights(NGrid,S=Radius)
     o=0.*x+1.
 
-    L.Log("Using gaussian grid %d^3"%(NGrid))
-    L.Log("Range from %.3f to %.3f"%(x[0], x[-1]))
+    L.Log("  Using gaussian grid %d^3 with Radius = %.2f ;"%(NGrid, Radius))
+    L.Log("  Range from %.3f to %.3f"%(x[0], x[-1]))
 
     def outrio(a,b,c):
         X=np.outer(a,b)
@@ -131,61 +190,244 @@ else:
     Z=outrio(o,o,x).reshape((NGrid3,))
     R2=X**2+Y**2+Z**2
 
-
     W=outrio(wx,wx,wx).reshape([NGrid3,])
-    if GridID=="PGA":
-        W*=( np.exp(-R2/Radius**2)
-             - np.exp(-2.*R2/Radius**2) )
-        W/=np.sum(W)
-    elif GridID=="SGA":
-        a=np.sqrt(2.)
-        W*=( np.exp(-R2/Radius**2)
-             - a**3*np.exp(-a**2*R2/Radius**2) )
-    else:
-        W*=np.exp(-R2/Radius**2)
-        W/=np.sum(W)
+    W*=np.exp(-R2/Radius**2)
+    W/=np.sum(W)
 
     Cube=np.zeros((NGrid3,3))
     Cube[:,0]=X
     Cube[:,1]=Y
     Cube[:,2]=Z
 
+#######################################################
 
-for (A,A2) in AtomPairs:
-    xyz=RAtom[A,:]+Cube+RayShift
-    xyz2=RAtom[A2,:]+Cube+RayShift
+def GetCsAvg(Cs, W, Cube=None):
+    CsM=np.dot(Cs, W)
+    if Cube is None:
+        return CsM
 
-    CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
-    if Opts.Mode=="Cs2":
-        Cs=CC.Cs2El
-    elif Opts.Mode=="CsS":
-        Cs=CC.CsSinglet
+    CsM=max(1e-20,CsM)
+    v=np.zeros((3,))
+    for i in range(0,3):
+        v[i]=np.dot(Cs*Cube[:,i],W)
+
+    T=np.zeros((3,3))
+    for i in range(0,3):
+        for j in range(i,3):
+            T[i,j]=np.dot(Cs*Cube[:,i]*Cube[:,j], W)
+            if not(i==j): T[j,i]=T[i,j]
+    return CsM, v, T
+
+def NeatVec(T):
+    return "[ "+", ".join(["%6.3f"%(X) for X in T.tolist()])+" ]";
+def NeatTens(T):
+    Rows=[]
+    for i in range(3):
+        Rows+=[NeatVec(T[:,i])]
+    return "[ "+", ".join(Rows)+" ]";
+
+#######################################################
+
+L.Log("Pairs:")
+A2Old=-5
+Index=0
+AllData=[]
+for AP in AtomPairs:
+    if (len(AP)==2):
+        A,A2=AP
+        N=0
     else:
-        Cs=CC.Cs
+        A,A2,N=AP
 
-    CsAvg=(1.-2.*Opts.W)
-    CsAvg=0.
+    if A==A2: continue
 
-    CsAA2=np.dot(np.dot(W, Cs), W)
-    Dev=CsAA2-CsAvg
+    RA=RAtom[A,:]
+    RA2=RAtom[A2,:]
+
+    if (N==0):
+        N=int(np.ceil( np.sqrt(((RA2-RA)**2).sum())/Opts.Step ))
+
+    AtID=IDAtom[A]+"%d"%(A)
+    AtID2=IDAtom[A2]+"%d"%(A2)
+
+    L.Log("# From: %-6s to %-6s"%(AtID, AtID2))
+    for n in range(N+1):
+        f=float(n)/float(N)
+        RP=RA*(1.-f) + RA2*f
+
+        if (A==A2Old) and (f==0.):
+            continue
+
+        R0=RP+RayShift
 
 
-    if not(A==A2):
-        CCB=Concurrence(Orbs, Basis, (xyz+xyz2)/2., W=Opts.W)
-        if Opts.Mode=="Cs2":
-            CsB=CCB.Cs2El
+        xyz=R0.reshape((1,3))
+        CC=Concurrence(Orbs, Basis, xyz, W=Opts.W)
+        rs=CC.rs[0]
+
+        if Opts.Radius<0.:
+            Radius=rs
+            xyz2=R0+rs*Cube
         else:
-            CsB=CCB.Cs
+            xyz2=R0+Cube
 
-        CsAA2B=np.dot(np.dot(W, CsB), W)
-        DevB=CsAA2B-CsAvg
-    else:
-        DevB=Dev
+        CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
+        if Opts.Mode=="Cs2":
+            Cs=CC.Cs2El
+        elif Opts.Mode=="CsS":
+            Cs=CC.CsSinglet
+        elif Opts.Mode=="dCs":
+            Cs=CC.Cs
+            CsA=GetCsAvg(Cs, W)
 
-    Rep,RepB=1000.*Dev, 1000.*DevB
-    Rep,RepB=1000.*(0.5+Dev)/1.5, 1000.*(DevB+0.5)/1.5
+            dW=0.05
+            CC2=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W+dW)
+            Cs2=CC2.Cs
+            
+            Cs=0.5+(Cs2-Cs)/dW
+        else:
+            Cs=CC.Cs
 
-    L.Log("%-3s(%2d) %-3s(%2d) %7.0f %7.0f"\
-        %(IDAtom[A], A, IDAtom[A2], A2, Rep, RepB))
+        Surf=4.*np.pi*Radius**2
+        if Opts.Tensor:
+            CsA,CsAv,CsAT=GetCsAvg(Cs, W, Cube)
 
+            CsAvN=CsAv/CsA
+            CsATN=CsAT/CsA
+
+            EVal,EVec=eigh(CsATN)
+        else:
+            CsA=GetCsAvg(Cs, W)
+
+        Data={ 'Step':Index, 'Cs': CsA, 'R':RP*HaToAng, 'rs':rs,
+               'f':f, 'df':1./float(N),
+               'K1':A, 'K2':A2,
+               'A1':AtID, 'A2':AtID2,
+               'R1':RA*HaToAng, 'R2':RA2*HaToAng }
+
+        Hdr="Step : %3d, Cs : %5.0f, R : %s, rs : %.3f, "\
+            %(Index, 1000.*CsA, NeatVec(RP*HaToAng), rs)
+        Hdr+="f : %.3f, A1: %-6s, A2: %-6s"%(f, AtID, AtID2)
+        if Opts.Tensor:
+            L.Log("- { %s, "%(Hdr) )
+            L.Log("    Csv:  "+NeatVec(CsAvN)+",")
+            L.Log("    CsT:  "+NeatTens(CsATN)+",")
+            L.Log("    EVal: "+NeatVec(EVal)+",")
+            L.Log("    EVec: "+NeatTens(EVec)+",")
+            L.Log("}")
+
+            Data['Csv']=CsAvN
+            Data['CsT']=CsATN
+        else:
+            L.Log("- { %s }"%(Hdr) )
+
+
+        AllData+=[Data]
+
+        Index+=1 # Step up the index
+    A2Old=A2 # Use to skip dupes
+
+# Tidy the log
 L.Close()
+
+# Will be given an option
+if Opts.Show:
+    x0=0.
+    A1=AllData[0]['A1']
+    A2=AllData[0]['A2']
+    x=np.zeros((len(AllData),))
+    y=np.zeros((len(AllData),))
+    yp=np.zeros((len(AllData),))
+
+    Lbls=[(A1,x0),]
+    for I in range(len(AllData)):
+        D=AllData[I]
+        dx=np.sqrt( ((D['R2']-D['R1'])**2).sum() )*D['df']
+        x[I]=x0
+        y[I]=D['Cs']
+        yp[I]=D['rs']*HaToAng
+
+        if not(D['A1']==A1):
+            A1=D['A1']
+            if A2==A1:
+                Lbls+=[(A1,x[I-1])]
+            else:
+                Lbls+=[(A2+"/"+A1,x[I-1])]
+        A2=D['A2']
+        x0+=dx
+    Lbls+=[(A2,x[-1])]
+
+    xt=[X[1] for X in Lbls]
+    xl=[X[0] for X in Lbls]
+
+    ax=plt.gca()
+    ax.plot(x, y, "-", linewidth=4,
+            label="$C_s$")
+    ax.plot(x, yp, ":", linewidth=4,
+            label="$r_s$ [$\\AA$]")
+    ax.set_xticks(xt)
+    ax.set_xticklabels(xl, fontsize=16)
+    yt=[0.,0.25,0.50,0.75,1.00]
+    ax.set_yticks(yt)
+    ax.set_yticklabels(yt, fontsize=16)
+    #ax.axis([0,xt[-1],-0.03,1.03])
+    plt.legend(loc="upper center", fontsize=18)
+    #plt.tight_layout()
+
+
+    if Opts.Mode=="Cs":
+        Suff="_%s_%.1f"%(Opts.ID, Opts.Radius)
+    else:
+        Suff="%s_%s_%.1f"%(Opts.Mode, Opts.ID, Opts.Radius)
+
+    plt.savefig("%s/Pairs%s.eps"%(Dirs.Images, Suff))
+
+    plt.clf()
+
+    from RenderMol import *
+    
+    ax=plt.gca()
+    
+    PV={}
+    D=AllData[0]
+    K1=D['K1']
+    K2=D['K2']
+    Proj=[0,K1,K2]
+    x,y,yp=[],[],[]
+    for I in range(len(AllData)):
+        D=AllData[I]
+        if (K1==D['K1']) and (K2==D['K2']):
+            x+=[D['f'],]
+            Cs=D['Cs'][0]
+            rs=D['rs']
+
+            y+=[Cs,]
+            yp+=[rs]
+        else:
+            PV[(K1,K2)]=(np.array(x),np.array(y),np.array(yp))
+
+            if D['K1']==K2:
+                x,y,yp=[0.],[Cs],[rs]
+            else:
+                x,y,yp=[],[],[]
+            K1=D['K1']
+            K2=D['K2']
+
+            Proj+=[K2,]
+
+    PV[(K1,K2)]=(np.array(x),np.array(y),np.array(yp))
+    Proj=list(set(Proj))[:3]
+
+    if not(Opts.Proj is None):
+        R=ConcSplitOption(Opts.Proj, Rtype="int")
+        Proj=[ R[0][0],R[0][1],R[1][0],R[1][1] ]
+
+    RenderMol(ax, ZAtom, RAtom, Proj=Proj,
+              Bonds=Bonds, PlotValues=PV,
+              PHeight=Opts.PHeight)
+
+    plt.tight_layout()
+
+    plt.savefig("%s/MolPairs%s.png"%(Dirs.Images, Suff))
+    plt.savefig("%s/MolPairs%s.pdf"%(Dirs.Images_eps, Suff))
+    #plt.show()

@@ -5,23 +5,25 @@ from Quadrature import *
 HaToAng=0.52917725
 AngToHa=1./HaToAng
 
-def NiceTriplet(x, delim="("):
+def NiceTriplet(x, delim="["):
     if delim is None:
         return "%8.4f %8.4f %8.4f"%(x[0],x[1],x[2])
-    else:
+    elif delim=="(":
         return "(%8.4f, %8.4f, %8.4f)"%(x[0],x[1],x[2])
+    else:
+        return "[%8.4f, %8.4f, %8.4f]"%(x[0],x[1],x[2])
 
 def GetPU(R, Show=False):
     RM=R.mean(axis=0)
     X=R-RM
     I2=np.dot(X.T,X)
-    if Show: print I2
+    if Show: print(I2)
 
     from scipy.linalg import eigh
 
     w,v=eigh(I2)
     ii=np.argsort(-w)
-    print NiceTriplet(w[ii])
+    if Show: print(NiceTriplet(w[ii]))
     e1=v[:,ii[0]]
     e2=v[:,ii[1]]
     e3=np.cross(e1,e2)
@@ -29,20 +31,20 @@ def GetPU(R, Show=False):
     return RM, PU
 
 class Orbitals:
-    def __init__(self, D):
+    def __init__(self, D, Show=False):
         NShell=len(D['Shell types'])
         NPrim=len(D['Primitive exponents'])
         NBasis=D['Number of basis functions']
 
-        print "N_Shell = %4d, N_Prim = %4d, N_Basis = %4d"\
-            %(NShell, NPrim, NBasis)
+        if Show: print("N_Shell = %4d, N_Prim = %4d, N_Basis = %4d"\
+                           %(NShell, NPrim, NBasis))
 
         Nalpha=D['Number of alpha electrons']
         Nbeta=D['Number of beta electrons']
         
         if (Nalpha-Nbeta)==0:
-            NOrbitals=D['Alpha MO coefficients'].shape[0]\
-                /D['Number of basis functions']
+            NOrbitals=int(D['Alpha MO coefficients'].shape[0]\
+                              /D['Number of basis functions'])
             phiCoeffs=D['Alpha MO coefficients'].reshape(NOrbitals,NBasis)
 
             Ens=D['Alpha Orbital Energies']
@@ -65,13 +67,14 @@ class Orbitals:
                     NL2+=1
 
             if not((NL2-NL)==0) or not((NH2-NH)==0):
-                print "%d-fold degenerate HOMO, %d-fold degenerate LUMO"\
-                    %(NH-NH2+1, NL2-NL+1)
-                print "Frontier from %d to %d"%(NH2, NL2),\
-                    Ens[NH2:(NL2+1)]
-
+                if Show:
+                    print("%d-fold degenerate HOMO, %d-fold degenerate LUMO"\
+                              %(NH-NH2+1, NL2-NL+1))
+                    print("Frontier from %d to %d"%(NH2, NL2),\
+                              Ens[NH2:(NL2+1)])
         else:
-            print "Spin unpolarized systems are not implemented"
+            if Show:
+                print("Spin unpolarized systems are not implemented")
 
         self.f=f
         self.NBasis=NBasis
@@ -114,7 +117,6 @@ class Concurrence:
         nL2=0.
         rhoL=0.
 
-        
         if not(xyz2 is None) and (len(xyz2.shape)==1):
             xyz2.resize((1,3))
 
@@ -141,6 +143,7 @@ class Concurrence:
                 nL+=DL*nb
                 nL2+=DL*nb2
                 rhoL+=DL*rhob
+
 
         nU=nG+nL
         nU2=nG2+nL2
@@ -170,6 +173,8 @@ class Concurrence:
         
         n2E=n2S2 + n2D2
 
+        self.rs=0.6203505/(2.*nG)**(1./3.)
+
         self.nG=nG
         self.nE=nU+nD
 
@@ -194,35 +199,55 @@ class Concurrence:
         rhoD=rhoL-rhoH
 
         if DiagOnly:
-            X0=nG*nG2
+            X0=2.*nG*nG2
             X0D=nG*nD2 + nD*nG2
             Xhl=nH*nL2 + nL*nH2
         else:
-            X0=np.outer(nG,nG2)
+            X0=2.*np.outer(nG,nG2)
             X0D=np.outer(nG,nD2) + np.outer(nD,nG2)
             Xhl=np.outer(nH,nL2) + np.outer(nL,nH2)
 
 
-        Y0=rhoG*rhoG
-        Y0D=rhoG*rhoD
-        Yhl=rhoH*rhoL
+        Y0=2.*rhoG*rhoG
+        Y0D=2.*rhoG*rhoD
+        Yhl=2.*rhoH*rhoL
 
-        A=(X0-Y0) + W/2.*(X0D-2.*Y0D) - W/6.*(Xhl-2.*Yhl)
-        B=X0 + W/2.*X0D - W/3.*(Xhl+Yhl)
-        F=Y0 + W*Y0D - W/6.*(Xhl+4.*Yhl)
+        # Calculate the proper ensemble average of h and l
+        if (DH<1.) and (DL<1.) and (W>0.):
+            print("Degenerate")
+            Xhl=0.
+            Yhl=0.
 
-        #print (F-A).max()
-        #print (-B).max()
+            for h in range(NH[0], NH[1]+1):
+                for l in range(NL[0], NL[1]+1):
+                    phih=Basis.GetOrbGrid(phiCoeffs[h,:], xyz,
+                                          RPrune=RPrune, cPrune=cPrune)
+                    phil=Basis.GetOrbGrid(phiCoeffs[l,:], xyz,
+                                          RPrune=RPrune, cPrune=cPrune)
+                    if not(xyz2 is None):
+                        phih2=Basis.GetOrbGrid(phiCoeffs[h,:], xyz2,
+                                               RPrune=RPrune, cPrune=cPrune)
+                        phil2=Basis.GetOrbGrid(phiCoeffs[l,:], xyz2,
+                                               RPrune=RPrune, cPrune=cPrune)
+                    else:
+                        phih2=phih
+                        phil2=phil
+                    Yhl+=2.*np.outer(phih, phih2) \
+                        * np.outer(phil, phil2)
+                    Xhl+=np.outer(phih**2, phil2**2) \
+                        + np.outer(phil**2, phih2**2)
+            Xhl*=(DH*DL)
+            Yhl*=(DH*DL)
 
-        #Cs=(4.*Y0-2.*X0 + W*(4.*Y0D - X0D) - 2.*W*Yhl) \
-        #    / (4.*X0-2.*Y0 + 2.*W*(X0D - Y0D) - W*Xhl)
-        self.Cs=np.maximum(-B/(A+B), (F-A)/(A+B))
-        #self.Cs=np.maximum( 0., (F-A)/(A+B) )
+        A=(X0-Y0) + W*(X0D-Y0D) - W/3.*(Xhl-Yhl)
+        B=X0 + W*X0D - W/3.*(2.*Xhl+Yhl)
+        F=Y0 + W*Y0D - W/3.*(Xhl+2.*Yhl)
+
+        self.Cs=np.maximum( 0., (F-A)/(A+B) )
 
         N=4.*Y0-2.*X0+W*(4.*Y0D-X0D)+W*(3.*Xhl-2.*Yhl)
         D=4.*X0-2.*Y0+2.*W*(X0D-Y0D)+W*(4.*Yhl-Xhl)
         self.CsSinglet=np.maximum(0., N/D)
 
-        self.rs=0.6203505/self.nG**2
 
 
