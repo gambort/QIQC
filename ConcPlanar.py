@@ -1,3 +1,14 @@
+###############################################################
+#
+# Implements concurrence and related metrics in Python
+#
+# Reads a molecule from a .fchk file (e.g. from Gaussian) and
+# calculates properties on a 2D projected grid
+#
+# Run ConcPlanar.py --help for help
+#
+###############################################################
+
 import numpy as np
 import matplotlib.pyplot as plt
 

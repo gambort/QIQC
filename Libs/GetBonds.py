@@ -7,7 +7,7 @@ AngToHa=1./HaToAng
 def GetBonds(Pos, IDs, Units="Ang"):
     N=len(IDs)
     if Pos.shape[0]!=N:
-        print("Mismatch in size")
+        print("# Mismatch in size")
         return None, None
 
     R=Pos

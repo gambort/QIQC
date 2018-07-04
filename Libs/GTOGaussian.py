@@ -68,7 +68,7 @@ def GetPoly(L,m=0,xyz=None):
         if m==6:
             return xyz[:,1]*(xyz[:,0]**2-xyz[:,1]**2)
     if L==-4:
-        print("L=-4 Not implemented")
+        print("# L=-4 Not implemented")
         return 0.
 
     return None
@@ -132,8 +132,6 @@ class GTOGaussian:
 
         DMin2=np.min(RS2)*np.min(gb['alpha']) # minimum distance 
         if DMin2>RPrune**2:
-            #print "Skipping this basis as too far %.3f from region"\
-            #    %(np.sqrt(DMin2))
             return 0.
 
         P=GetNormPoly( l, m, xyzS )
@@ -157,7 +155,7 @@ class GTOGaussian:
             gb,l,m=self.GetGaussianProps(b)
             if (np.abs(l)>=4):
                 if np.abs(cc)>1e-2:
-                    print("Warning: >g orbitals not implemented: "\
+                    print("# Warning: >g orbitals not implemented: "\
                               +"missing weight is %.3f"%(cc))
             else:
                 BB=self.GetGaussian(b, xyz, RPrune=RPrune)

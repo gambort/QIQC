@@ -1,3 +1,15 @@
+###############################################################
+#
+# Implements concurrence and related metrics in Python
+#
+# Reads a molecule from a .fchk file (e.g. from Gaussian) and
+# calculates properties using a condensed metric
+#
+# Outputs are a viable yaml file
+#
+# Run ConcPairs.py --help for help
+#
+###############################################################
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import eigh

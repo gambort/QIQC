@@ -160,8 +160,6 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
                     if (-s*sy)<0.: sy=-sy
                 else:
                     if ( c*sy)<0.: sy=-sy
-                    
-                #print "%.1f %.1f %.3f %.3f"%(sy, angle/np.pi*180., sy*c, -sy*s)
 
                 MM=(None,"-r","--g","-.b")
                 for p in range(1,len(Data)):
@@ -191,7 +189,6 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
     if not(PHeight is None):
         Scale=PHeight/(Y2-Y1)
     
-        print (Y2-Y1),Scale
     XC=(X1+X2)/2.
     XR=(X2-X1)/2. * Scale
     YC=(Y1+Y2)/2.

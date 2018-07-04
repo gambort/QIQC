@@ -214,7 +214,7 @@ class Concurrence:
 
         # Calculate the proper ensemble average of h and l
         if (DH<1.) and (DL<1.) and (W>0.):
-            print("Degenerate")
+            if Show: print("Degenerate")
             Xhl=0.
             Yhl=0.
 

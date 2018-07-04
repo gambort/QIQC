@@ -9,7 +9,9 @@ class ConcFileDirs:
 
         if os.path.isfile("ConcDirs.cfg"):
             import yaml
-            CFG=yaml.load(open("ConcDirs.cfg", "r"))
+            F=open("ConcDirs.cfg", "r")
+            CFG=yaml.load(F)
+            F.close()
             if "Images" in CFG: Images=CFG["Images"]
             if "Data" in CFG: Data=CFG["Data"]
             if "eps" in CFG: eps=CFG["eps"]
