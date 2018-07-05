@@ -284,12 +284,16 @@ for AP in AtomPairs:
         else:
             xyz2=R0+Cube
 
-        CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
-        if Opts.Mode=="Cs2":
+        if Opts.Mode=="None":
+            Cs=0.*xyz2[:,0]
+        elif Opts.Mode=="Cs2":
+            CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
             Cs=CC.Cs2El
         elif Opts.Mode=="CsS":
+            CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
             Cs=CC.CsSinglet
         elif Opts.Mode=="dCs":
+            CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
             Cs=CC.Cs
             CsA=GetCsAvg(Cs, W)
 
@@ -299,7 +303,9 @@ for AP in AtomPairs:
             
             Cs=0.5+(Cs2-Cs)/dW
         else:
+            CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
             Cs=CC.Cs
+
 
         Surf=4.*np.pi*Radius**2
         if Opts.Tensor:
@@ -311,6 +317,8 @@ for AP in AtomPairs:
             EVal,EVec=eigh(CsATN)
         else:
             CsA=GetCsAvg(Cs, W)
+
+        CsA=float(CsA)
 
         Data={ 'Step':Index, 'Cs': CsA, 'R':RP*HaToAng, 'rs':rs,
                'f':f, 'df':1./float(N),
@@ -401,43 +409,62 @@ if Opts.Show:
     
     ax=plt.gca()
     
-    PV={}
+    NData=len(AllData)
+    ListData=np.zeros((NData,2))
     D=AllData[0]
-    K1=D['K1']
-    K2=D['K2']
+    K1,K2=D['K1'],D['K2']
     Proj=[0,K1,K2]
-    x,y,yp=[],[],[]
-    for I in range(len(AllData)):
+    PVI={}
+    Index0=0
+    for I in range(NData):
         D=AllData[I]
-        if (K1==D['K1']) and (K2==D['K2']):
-            x+=[D['f'],]
-            Cs=D['Cs'][0]
-            rs=D['rs']
-
-            y+=[Cs,]
-            yp+=[rs]
-        else:
-            PV[(K1,K2)]=(np.array(x),np.array(y),np.array(yp))
-
-            if D['K1']==K2:
-                x,y,yp=[0.],[Cs],[rs]
+        print D['K1'],D['K2'],K1,K2
+        ListData[I,0]=D['Cs']
+        ListData[I,1]=D['rs']
+        if not(D['K1']==K1 and D['K2']==K2) or I==(NData-1):
+            if (I==(NData-1)):
+                IndexF=NData
             else:
-                x,y,yp=[],[],[]
+                IndexF=I
+            PVI[(K1,K2)]=(Index0,IndexF)
+            Proj+=[K1,K2]
+
+            Index0=I
+            if D['K1']==K2:
+                Index0-=1 # connector
+
             K1=D['K1']
             K2=D['K2']
 
-            Proj+=[K2,]
+    PV={}
+    for Pair in PVI:
+        I0,I1=PVI[Pair]
+        N=(I1-I0)
+        y =ListData[I0:I1,0].reshape((N,))
+        yp=ListData[I0:I1,1].reshape((N,))
+        x=np.linspace(0.,1.,N)
+        PV[Pair]=(x,y,yp)
 
-    PV[(K1,K2)]=(np.array(x),np.array(y),np.array(yp))
     Proj=list(set(Proj))[:3]
 
     if not(Opts.Proj is None):
         R=ConcSplitOption(Opts.Proj, Rtype="int")
         Proj=[ R[0][0],R[0][1],R[1][0],R[1][1] ]
 
+    PCols=("r-", "g--")
+    if not(Opts.Mode=="Cs"):
+        PCols=("b-", "g--")
+    if Opts.Mode=="rsCs":
+        # Special mode that shows "Cs" and "rs Cs:
+        for T in PV:
+            x,y,yp=PV[T]
+            yp=y*yp
+            PV[T]=(x,y,yp)
+        PCols=("r-", "b--")
     RenderMol(ax, ZAtom, RAtom, Proj=Proj,
               Bonds=Bonds, PlotValues=PV,
-              PHeight=Opts.PHeight)
+              PHeight=Opts.PHeight,
+              PCols=PCols)
 
     plt.tight_layout()
 
