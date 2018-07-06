@@ -76,6 +76,7 @@ def DoProj(X, Proj, aspect=0., GetS=False):
 
 def RenderMol(ax, Z,R, Proj=None, Bonds=None,
               PlotValues=None, PHeight=None,
+              PCols=("r-", "g--", "c-."),
               aspect=0.03):
     # Guess a projection
     if Proj is None or len(Proj)<=4:
@@ -161,7 +162,6 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
                 else:
                     if ( c*sy)<0.: sy=-sy
 
-                MM=(None,"-r","--g","-.b")
                 for p in range(1,len(Data)):
                     y=np.minimum(Data[p],1.2)
 
@@ -172,7 +172,7 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
                         ax.add_patch(pa.Rectangle(
                                 P1,Width,sy,angle=angle*180./np.pi,
                                 color=(0.9,0.9,0.9), alpha=0.2))
-                    plt.plot(xp,yp, MM[p], linewidth=4, zorder=1000)
+                    plt.plot(xp,yp, PCols[p-1], linewidth=4, zorder=1000)
 
     RP=PP[:,0:2]
     ZP=PP[:,2]
