@@ -418,7 +418,6 @@ if Opts.Show:
     Index0=0
     for I in range(NData):
         D=AllData[I]
-        print D['K1'],D['K2'],K1,K2
         ListData[I,0]=D['Cs']
         ListData[I,1]=D['rs']
         if not(D['K1']==K1 and D['K2']==K2) or I==(NData-1):

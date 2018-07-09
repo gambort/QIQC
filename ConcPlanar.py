@@ -11,6 +11,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as PathEffects
 
 from Libs.ReadFCHK import *
 from Libs.GTOGaussian import *
@@ -55,6 +56,8 @@ parser.add_option('--Suff', type="string", default=None,
 parser.add_option('--PlotType', type="string", default="Cs",
                   help="Choose your metric")
 
+parser.add_option('--NoBar', default=False, action="store_true",
+                  help="Remove the colour bar")
 parser.add_option('--Show', default=False, action="store_true",
                   help="Show, but don't save the results")
 parser.add_option('--SaveData', default=False, action="store_true",
@@ -195,7 +198,7 @@ def DoPlanarPlot(DF, Opts, Report=2):
         dCs=(CC2P.Cs.reshape((Nx,Nx)) - CC2.Cs.reshape((Nx,Nx)))/dW
 
         Out=-1000.*dCs
-        zLbl="$-1000\\partial_w C_s$"
+        zLbl="$-\\partial_w C_s\ [\\times 1000]$"
 
         T=np.abs(Out).max()
         Bins=[200.,500.,1000.,2000.,5000.,1e4]
@@ -216,7 +219,7 @@ def DoPlanarPlot(DF, Opts, Report=2):
         Cs=CC2.Cs.reshape((Nx,Nx))
 
         Out=1000.*np.maximum(Cs,0.)
-        zLbl="$1000C_s$"
+        zLbl="$C_s\ [\\times 1000]$"
 
     print DataRange
     
@@ -245,12 +248,14 @@ def DoPlanarPlot(DF, Opts, Report=2):
                          zorder=0)
 
     def AddText(ax, x,y,z, Text):
-        ax.text3D(x,y,z,Text,
-                  horizontalalignment="center",
-                  verticalalignment="center",
-                  clip_on=False,
-                  fontsize=16, color="black")
-        
+        txt=ax.text3D(x,y,z,Text,
+                      horizontalalignment="center",
+                      verticalalignment="center",
+                      clip_on=False, zorder=5010,
+                      fontsize=20, color="white")
+        txt.set_path_effects([PathEffects.withStroke(linewidth=2,
+                                                     foreground='k')])
+                              
     RA=RAtomP
     Z0=0.
     ZM=DataRange[-1]+5.
@@ -286,15 +291,16 @@ def DoPlanarPlot(DF, Opts, Report=2):
     ax.set_ylabel("$y$ [$\\AA$]", fontsize=16)
 
     ax.set_zticks(DataRange)
-    ax.set_title(zLbl, fontsize=24)
+    ax.set_title(zLbl, fontsize=28)
 
-    cax = fig.add_subplot(111)
-    cax.set_position([0.90,0.03,0.03,0.94])
-    fig.colorbar(surf, orientation='vertical',
-                 ticks=DataRange,
-                 extend='both',
-                 cax=cax
-                 )
+    if not(Opts.NoBar):
+        cax = fig.add_subplot(111)
+        cax.set_position([0.90,0.03,0.03,0.94])
+        fig.colorbar(surf, orientation='vertical',
+                     ticks=DataRange,
+                     extend='both',
+                     cax=cax
+                     )
     ax.set_position([0.03,0.03,0.94,0.94])
 
     Suff=""

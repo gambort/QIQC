@@ -127,6 +127,7 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
             P2=PP[Ap,0:2]
 
             angle=np.arctan2(P2[1]-P1[1],P2[0]-P1[0])
+            Depth=(PP[A ,2] + PP[Ap,2])/2.
             Width=np.sqrt(np.sum((P1-P2)**2))
 
             if not(Bonds is None):
@@ -143,7 +144,8 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
                 
                 ax.add_patch(pa.Rectangle(
                         P0,Width,Height,angle=angle*180./np.pi,
-                        color=(0.,0.,0.)))
+                        color=(0.,0.,0.),                        
+                        zorder=int(100*Depth-3)))
 
             if not(PlotValues is None) and ((A,Ap) in PlotValues):
                 Data=PlotValues[(A,Ap)]
@@ -171,7 +173,8 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
                     if (p==1):
                         ax.add_patch(pa.Rectangle(
                                 P1,Width,sy,angle=angle*180./np.pi,
-                                color=(0.9,0.9,0.9), alpha=0.2))
+                                color=(0.9,0.9,0.9), alpha=0.2,
+                                zorder=1000))
                     plt.plot(xp,yp, PCols[p-1], linewidth=4, zorder=1000)
 
     RP=PP[:,0:2]
