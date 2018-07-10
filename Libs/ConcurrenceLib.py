@@ -36,8 +36,9 @@ class Orbitals:
         NPrim=len(D['Primitive exponents'])
         NBasis=D['Number of basis functions']
 
-        if Show: print("N_Shell = %4d, N_Prim = %4d, N_Basis = %4d"\
-                           %(NShell, NPrim, NBasis))
+        self.Show=Show
+        if self.Show: print("N_Shell = %4d, N_Prim = %4d, N_Basis = %4d"\
+                                %(NShell, NPrim, NBasis))
 
         Nalpha=D['Number of alpha electrons']
         Nbeta=D['Number of beta electrons']
@@ -67,13 +68,13 @@ class Orbitals:
                     NL2+=1
 
             if not((NL2-NL)==0) or not((NH2-NH)==0):
-                if Show:
+                if self.Show:
                     print("%d-fold degenerate HOMO, %d-fold degenerate LUMO"\
                               %(NH-NH2+1, NL2-NL+1))
                     print("Frontier from %d to %d"%(NH2, NL2),\
                               Ens[NH2:(NL2+1)])
         else:
-            if Show:
+            if self.Show:
                 print("Spin unpolarized systems are not implemented")
 
         self.f=f
@@ -214,7 +215,6 @@ class Concurrence:
 
         # Calculate the proper ensemble average of h and l
         if (DH<1.) and (DL<1.) and (W>0.):
-            if Show: print("Degenerate")
             Xhl=0.
             Yhl=0.
 
