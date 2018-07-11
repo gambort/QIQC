@@ -190,8 +190,8 @@ def RenderMol(ax, Z,R, Proj=None, Bonds=None,
     Y1,Y2=ax.get_ylim()
     Scale = 1.1 # Zoom out by 10%
     if not(PHeight is None):
-        Scale=PHeight/(Y2-Y1)
-    
+        Scale=float(PHeight)/float(Y2-Y1)
+        print "# Scaling from %.1f to %.1f using %.2f"%(Y2-Y1,PHeight,Scale)
     XC=(X1+X2)/2.
     XR=(X2-X1)/2. * Scale
     YC=(Y1+Y2)/2.

@@ -47,7 +47,7 @@ parser.add_option('--NGrid', type=int, default=11,
 parser.add_option('--Radius', type=float, default=-1.,
                   help="Radius of Gaussian envelope")
 
-parser.add_option('--Mode', type="string", default="Cs",
+parser.add_option('--Mode', type="string", default="rsCs",
                   help="Type of metric")
 
 parser.add_option('--Tensor', default=False, action="store_true",
@@ -186,7 +186,7 @@ if Opts.Surface:
     if Opts.Radius>0.:
         L.Log("  Using surface grid at Radius = %.3f"%(Radius))
     else:
-        L.Log("  Using surface grid at Radius = rs")
+        L.Log("  Using surface grid at Radius = %.2f rs"%(-Opts.Radius))
 else:
     x,wx,lwx=GaussHermiteWeights(NGrid,S=Radius)
     o=0.*x+1.
@@ -279,8 +279,8 @@ for AP in AtomPairs:
         rs=CC.rs[0]
 
         if Opts.Radius<0.:
-            Radius=rs
-            xyz2=R0+rs*Cube
+            Radius=-Opts.Radius*rs
+            xyz2=R0+Radius*Cube
         else:
             xyz2=R0+Cube
 
@@ -292,14 +292,19 @@ for AP in AtomPairs:
         elif Opts.Mode=="CsS":
             CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
             Cs=CC.CsSinglet
-        elif Opts.Mode=="dCs":
-            CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W)
+        elif Opts.Mode=="dCs" or Opts.Mode=="rsdCs":
+            CC=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W+1e-7)
             Cs=CC.Cs
-            CsA=GetCsAvg(Cs, W)
+            CsA1=GetCsAvg(Cs, W)
 
             dW=0.05
             CC2=Concurrence(Orbs, Basis, xyz, xyz2=xyz2, W=Opts.W+dW)
             Cs2=CC2.Cs
+            CsA2=GetCsAvg(Cs2, W)
+
+            CsAM=(CsA2+CsA1)/2.+1e-10
+
+            LCsA=(CsA2-CsA1)/dW / CsAM
             
             Cs=0.5+(Cs2-Cs)/dW
         else:
@@ -319,6 +324,8 @@ for AP in AtomPairs:
             CsA=GetCsAvg(Cs, W)
 
         CsA=float(CsA)
+        if Opts.Mode=="dCs" or Opts.Mode=="rsdCs":
+            CsA=LCsA
 
         Data={ 'Step':Index, 'Cs': CsA, 'R':RP*HaToAng, 'rs':rs,
                'f':f, 'df':1./float(N),
@@ -453,8 +460,8 @@ if Opts.Show:
     PCols=("r-", "g--")
     if not(Opts.Mode=="Cs"):
         PCols=("b-", "g--")
-    if Opts.Mode=="rsCs":
-        # Special mode that shows "Cs" and "rs Cs:
+    if Opts.Mode=="rsCs" or Opts.Mode=="rsdCs":
+        # Special mode that shows "Cs" and "rs Cs" (or dCs)
         for T in PV:
             x,y,yp=PV[T]
             yp=y*yp
